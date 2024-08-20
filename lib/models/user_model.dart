@@ -5,7 +5,6 @@ class UserModel {
   DateTime lastQuizTime;
   int highestScore;
   bool isAdmin;
-  // List<int> scoreList;
 
   UserModel({
     required this.uid,
@@ -14,7 +13,6 @@ class UserModel {
     required this.lastQuizTime,
     required this.highestScore,
     required this.isAdmin,
-    // required this.scoreList,
   });
 
   Map<String, dynamic> toJson() {
@@ -25,7 +23,6 @@ class UserModel {
       'lastQuizTime': lastQuizTime.toIso8601String(),
       'highestScore': highestScore,
       'isAdmin': isAdmin,
-      // 'scoreList': scoreList,
     };
   }
 
@@ -37,7 +34,6 @@ class UserModel {
       createdAt: DateTime.parse(json['createdAt']),
       lastQuizTime: DateTime.parse(json['lastQuizTime']),
       highestScore: json['highestScore'] ?? 0,
-      // scoreList: json['scoreList'] ?? [],
     );
   }
 
@@ -48,7 +44,6 @@ class UserModel {
     DateTime? lastQuizTime,
     int? highestScore,
     bool? isAdmin,
-    // List<int>? scoreList,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -57,7 +52,6 @@ class UserModel {
       createdAt: createdAt ?? this.createdAt,
       lastQuizTime: lastQuizTime ?? this.lastQuizTime,
       highestScore: highestScore ?? this.highestScore,
-      // scoreList: scoreList ?? this.scoreList,
     );
   }
 }

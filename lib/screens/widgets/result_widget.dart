@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quiz_app/providers/auth_provider.dart';
 import 'package:quiz_app/providers/quiz_provider.dart';
-import 'package:quiz_app/utils/constants.dart';
 
 class ResultWidget extends StatefulWidget {
   const ResultWidget({super.key});
@@ -22,7 +21,7 @@ class _ResultWidgetState extends State<ResultWidget> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            'Your Score: ${quizProvider.score}/${questions.length}',
+            'Your Score: ${quizProvider.score}/${quizProvider.quizQuestions.length}',
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),

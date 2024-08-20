@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -25,60 +25,82 @@ class SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sign In'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: authProvider.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  if (!authProvider.isAdmin)
-                    GlobalTextFormField(
-                      controller: _nameController,
-                    ),
-                  if (authProvider.isAdmin)
-                    GlobalTextFormField(
-                      controller: _adminController,
-                      isAdminLogin: true,
-                    ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+      body: Consumer<AuthProvider>(
+        builder: (context, authProvider, _) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: authProvider.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
                     children: [
-                      EnterQuizButton(
-                        nameController: _nameController,
-                      ),
-                      10.hSpace,
-                      ElevatedButton(
-                        onPressed: () async {
-                          authProvider.toggleAdmin(true);
-                          if (_adminController.text.isEmpty) {
-                            ToastUtils.showErrorToast("Enter admin name");
-                            return;
-                          }
-                          if (_adminController.text == Constants.admin) {
-                            await authProvider.signInAnonymously(
-                              _adminController.text,
-                              isAdminLogin: true,
-                            );
-                            context.pushReplacement(
-                                navigateTo: const QuizScreen());
-                          } else {
-                            ToastUtils.showErrorToast("Invalid admin name");
-                          }
-                        },
-                        child: const Text('Admin Login'),
+                      if (!authProvider.isAdmin)
+                        GlobalTextFormField(
+                          controller: _nameController,
+                        ),
+                      if (authProvider.isAdmin)
+                        GlobalTextFormField(
+                          controller: _adminController,
+                          isAdminLogin: true,
+                        ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          EnterQuizButton(
+                            nameController: _nameController,
+                          ),
+                          10.hSpace,
+                          ElevatedButton(
+                            onPressed: () async {
+                              authProvider.toggleAdmin(true);
+                              final userName = _adminController.text.trim();
+
+                              if (userName.isEmpty && authProvider.isAdmin) {
+                                ToastUtils.showErrorToast("Enter admin name");
+                                return;
+                              }
+
+                              if (userName == Constants.admin) {
+                                await _handleAdminLogin(authProvider, userName);
+                              } else {
+                                ToastUtils.showErrorToast("Invalid admin name");
+                              }
+                            },
+                            child: const Text('Admin Login'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+          );
+        },
       ),
     );
+  }
+
+  Future<void> _handleAdminLogin(
+      AuthProvider authProvider, String userName) async {
+    try {
+      await authProvider.signInAnonymously(userName, isAdminLogin: true);
+
+      if (mounted && authProvider.currentUser != null) {
+        log("current user ${authProvider.currentUser}");
+        context.pushReplacement(navigateTo: const QuizScreen());
+      }
+    } catch (e) {
+      debugPrint("signin error $e");
+      ToastUtils.showErrorToast(e.toString());
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _adminController.dispose();
+    super.dispose();
   }
 }

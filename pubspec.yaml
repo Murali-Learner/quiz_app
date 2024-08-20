@@ -40,6 +40,7 @@ dependencies:
   firebase_auth: ^5.1.4
   firebase_database: ^11.0.4
   fluttertoast: ^8.2.8
+  syncfusion_flutter_datagrid: ^26.2.9
 
 dev_dependencies:
   flutter_test:
