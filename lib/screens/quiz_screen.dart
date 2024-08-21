@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quiz_app/providers/auth_provider.dart';
 import 'package:quiz_app/providers/quiz_provider.dart';
-import 'package:quiz_app/screens/leader_ship_screen.dart';
+import 'package:quiz_app/screens/leader_board_screen.dart';
 import 'package:quiz_app/screens/signin_screen.dart';
 import 'package:quiz_app/screens/widgets/quiz_widget.dart';
 import 'package:quiz_app/utils/extensions/context_extension.dart';
@@ -19,13 +19,17 @@ class QuizScreenState extends State<QuizScreen> {
   @override
   void initState() {
     super.initState();
-    final quizProvider = context.read<QuizProvider>();
-    final authProvider = context.read<AuthProvider>();
-    // if (authProvider.currentUser != null) {
-    //   if (authProvider.currentUser!.isAdmin) {
-    //     quizProvider.startQuiz();
-    //   }
-    // }
+    init();
+  }
+
+  init() async {
+    await Future.delayed(Duration.zero).whenComplete(() {
+      {
+        final quizProvider = context.read<QuizProvider>();
+        quizProvider.updateQuizActive(false);
+        quizProvider.streamSubscriptions();
+      }
+    });
   }
 
   @override
@@ -36,12 +40,13 @@ class QuizScreenState extends State<QuizScreen> {
         actions: [
           Consumer2<QuizProvider, AuthProvider>(
               builder: (context, quizProvider, authProvider, _) {
-            return quizProvider.isQuizEnded || authProvider.currentUser!.isAdmin
+            return quizProvider.isQuizEnded &&
+                    !authProvider.currentUser!.isAdmin
                 ? IconButton(
                     tooltip: "Leaderboard",
                     onPressed: () {
-                      quizProvider.logout();
-                      context.push(navigateTo: const LeadershipPage());
+                      quizProvider.resetQuiz();
+                      context.push(navigateTo: const LeaderBoardPage());
                     },
                     icon: const Icon(Icons.leaderboard_outlined),
                   )
@@ -53,8 +58,9 @@ class QuizScreenState extends State<QuizScreen> {
             return IconButton(
               tooltip: "Logout",
               onPressed: () {
-                quizProvider.resetAllAnswers();
+                quizProvider.resetQuiz();
                 authProvider.logout();
+                quizProvider.dispose();
                 context.pushReplacement(navigateTo: const SignInScreen());
               },
               icon: const Icon(Icons.logout),
@@ -73,9 +79,12 @@ class QuizScreenState extends State<QuizScreen> {
             return quizProvider.quizQuestions.isEmpty
                 ? const SizedBox.shrink()
                 : QuizWidget(
-                    isQuizEnded: quizProvider.isLoading,
+                    isAdmin: authProvider.isAdmin,
+                    isQuizEnded: quizProvider.isQuizEnded,
                     question: quizProvider.currentQuestion,
-                    currentUsername: authProvider.currentUser!.name,
+                    currentUsername: authProvider.currentUser == null
+                        ? ""
+                        : authProvider.currentUser!.name,
                   );
           }
         },

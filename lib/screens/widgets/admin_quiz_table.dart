@@ -28,20 +28,29 @@ class AdminQuizTableState extends State<AdminQuizTable> {
   void _fetchData() {
     // Fetch users
     final quizProvider = context.read<QuizProvider>();
-    quizProvider.getUsersStream().listen((users) {
-      setState(() {
-        _users = users;
-        _initializeDataSource();
-      });
-    });
+    quizProvider.getUsersStream().listen(
+      (users) {
+        // debugPrint("uses stream ${users.length}");
+        setState(
+          () {
+            _users = users;
+            _initializeDataSource();
+          },
+        );
+      },
+    );
 
     // Fetch questions
-    quizProvider.getQuestionsStream().listen((questions) {
-      setState(() {
-        _questions = questions;
-        _initializeDataSource();
-      });
-    });
+    quizProvider.getQuestionsStream().listen(
+      (questions) {
+        setState(
+          () {
+            _questions = questions;
+            _initializeDataSource();
+          },
+        );
+      },
+    );
   }
 
   void _initializeDataSource() {
@@ -55,10 +64,12 @@ class AdminQuizTableState extends State<AdminQuizTable> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: context.height(50),
       child: _usersDataSource == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
           : SfDataGrid(
               source: _usersDataSource!,
               columns: _getColumns(),
@@ -69,24 +80,35 @@ class AdminQuizTableState extends State<AdminQuizTable> {
   List<GridColumn> _getColumns() {
     List<GridColumn> columns = [
       GridColumn(
-          columnName: 'User',
-          label: Container(
-            padding: const EdgeInsets.all(8.0),
-            alignment: Alignment.center,
-            child: const Text('User', overflow: TextOverflow.ellipsis),
-          )),
+        columnName: 'User',
+        label: Container(
+          padding: const EdgeInsets.all(8.0),
+          alignment: Alignment.center,
+          child: const Text(
+            'User',
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
     ];
 
-    columns.addAll(_questions.map((question) {
-      return GridColumn(
-          columnName: question.id.toString(),
-          label: Container(
-            padding: const EdgeInsets.all(8.0),
-            alignment: Alignment.center,
-            child:
-                Text(question.id.toString(), overflow: TextOverflow.ellipsis),
-          ));
-    }).toList());
+    columns.addAll(
+      _questions.map(
+        (question) {
+          return GridColumn(
+            columnName: question.id.toString(),
+            label: Container(
+              padding: const EdgeInsets.all(8.0),
+              alignment: Alignment.center,
+              child: Text(
+                question.id.toString(),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          );
+        },
+      ).toList(),
+    );
 
     return columns;
   }
@@ -99,19 +121,26 @@ class UsersDataSource extends DataGridSource {
     required List<UserModel> users,
     required List<QuestionModel> questions,
   }) {
-    _dataGridRows = users.map<DataGridRow>((user) {
-      return DataGridRow(cells: [
-        DataGridCell<String>(columnName: 'User', value: user.name),
-        ...questions.map((question) {
-          return DataGridCell<String>(
-            columnName: question.id.toString(),
-            value: (question.hasAnswered) && (question.answeredUser) == user.uid
-                ? 'A'
-                : 'NA',
-          );
-        }),
-      ]);
-    }).toList();
+    _dataGridRows = users.map<DataGridRow>(
+      (user) {
+        return DataGridRow(
+          cells: [
+            DataGridCell<String>(columnName: 'User', value: user.name),
+            ...questions.map(
+              (question) {
+                return DataGridCell<String>(
+                  columnName: (question.id).toString(),
+                  value: (question.hasAnswered) &&
+                          (question.answeredUser) == user.uid
+                      ? 'A'
+                      : 'NA',
+                );
+              },
+            ),
+          ],
+        );
+      },
+    ).toList();
   }
 
   @override
@@ -119,14 +148,21 @@ class UsersDataSource extends DataGridSource {
 
   @override
   DataGridRowAdapter buildRow(DataGridRow row) {
-    return DataGridRowAdapter(cells: [
-      ...row.getCells().map((cell) {
-        return Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.all(8.0),
-          child: Text(cell.value.toString(), overflow: TextOverflow.ellipsis),
-        );
-      }),
-    ]);
+    return DataGridRowAdapter(
+      cells: [
+        ...row.getCells().map(
+          (cell) {
+            return Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                cell.value.toString(),
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          },
+        ),
+      ],
+    );
   }
 }

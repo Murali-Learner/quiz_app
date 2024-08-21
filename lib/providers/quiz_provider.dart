@@ -5,6 +5,8 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:quiz_app/models/question_model.dart';
 import 'package:quiz_app/models/user_model.dart';
+import 'package:quiz_app/utils/constants.dart';
+import 'package:quiz_app/utils/toast_utils.dart';
 
 class QuizProvider with ChangeNotifier {
   static final QuizProvider _instance = QuizProvider._internal();
@@ -14,34 +16,48 @@ class QuizProvider with ChangeNotifier {
   }
   QuizProvider._internal() {
     _dbInstance = FirebaseDatabase.instance;
-    _questionsRef = _dbInstance.ref('questions');
-    _quizVariablesRef = _dbInstance.ref('quiz_variables');
-    _usersRef = _dbInstance.ref('users');
-
+    _quizzesRef = _dbInstance.ref('quizzes/quiz1/');
+    _questionsRef = _dbInstance.ref('quizzes/quiz1/questions/');
+    _participatedUsersRef = _dbInstance.ref('quizzes/quiz1/participatedUsers/');
+    // storeQuestions();
     fetchQuestions();
-    updateQuizStarted(false);
-
-    // startTimer(); timer controlled by ADMIN only
   }
+  // Future<void> storeQuestions() async {
+  //   try {
+  //     for (QuestionModel question in quizQuestionsQ) {
+  //       await _questionsRef.child(question.id).set(question.toJson());
+  //     }
+  //     debugPrint('All questions stored successfully');
+  //   } catch (e) {
+  //     debugPrint('Failed to store questions: $e');
+  //   }
+  // }
+
+  late StreamSubscription<DatabaseEvent> _timerSubscription;
+  late StreamSubscription<DatabaseEvent> _quizActiveSubscription;
+  late StreamSubscription<DatabaseEvent> _currentQuestionIndexSubscription;
+
   late final DatabaseReference _questionsRef;
-  late final DatabaseReference _usersRef;
-  late final DatabaseReference _quizVariablesRef;
+  late final DatabaseReference _participatedUsersRef;
+  late final DatabaseReference _quizzesRef;
   late final FirebaseDatabase _dbInstance;
 
   List<QuestionModel> _quizQuestions = [];
   int _selectedIndex = -1;
   int _currentQuestionIndex = 0;
   int _score = 0;
-  int _timeLeft = 5;
-  bool _quizStarted = false;
+  int _timeLeft = Constants.questionTime;
+  bool _quizActive = false;
   Timer? _timer;
   bool _isQuizEnded = false;
   bool _isLoading = false;
+  bool _btnLoading = false;
   bool _isPaused = true;
 
   bool get isPaused => _isPaused;
   bool get isLoading => _isLoading;
-  bool get quizStarted => _quizStarted;
+  bool get btnLoading => _btnLoading;
+  bool get quizActive => _quizActive;
   int get currentQuestionIndex => _currentQuestionIndex;
   List<QuestionModel> get quizQuestions => _quizQuestions;
   int get totalQuestions => quizQuestions.length;
@@ -49,25 +65,44 @@ class QuizProvider with ChangeNotifier {
   int get timeLeft => _timeLeft;
   bool get isQuizEnded => _isQuizEnded;
   int get selectedIndex => _selectedIndex;
-  // QuestionModel get currentQuestion => quizQuestions[_currentQuestionIndex];
 
   void setLoading(bool value) {
     _isLoading = value;
     notifyListeners();
   }
 
-  Future<void> updateQuizStarted(bool started) async {
-    try {
-      final snapshot = await _quizVariablesRef.child("quizStarted").get();
-      final currentValue = snapshot.value as bool?;
-      debugPrint("statement $currentValue");
-      //  if (currentValue != started) {
-      await _quizVariablesRef.child("quizStarted").set(started);
-      _quizStarted = started;
+  void setBtnLoading(bool value) {
+    _btnLoading = value;
+    notifyListeners();
+  }
+
+  void streamSubscriptions() {
+    _timerSubscription =
+        _quizzesRef.child('timerDuration').onValue.listen((event) {
+      _timeLeft = event.snapshot.value as int;
       notifyListeners();
-      // }
+    });
+
+    _quizActiveSubscription =
+        _quizzesRef.child('quizActive').onValue.listen((event) {
+      _quizActive = event.snapshot.value as bool;
+      notifyListeners();
+    });
+
+    _currentQuestionIndexSubscription =
+        _quizzesRef.child('currentQuestion').onValue.listen((event) {
+      _currentQuestionIndex = event.snapshot.value as int;
+      notifyListeners();
+    });
+  }
+
+  Future<void> updateQuizActive(bool active) async {
+    try {
+      await _quizzesRef.child("quizActive").set(active);
+      _quizActive = active;
+      notifyListeners();
     } catch (e) {
-      debugPrint("Error updating quizStarted: $e");
+      debugPrint("Error updating quizActive: $e");
     }
   }
 
@@ -76,51 +111,101 @@ class QuizProvider with ChangeNotifier {
   }
 
   void startQuiz() {
-    updateQuizStarted(true);
+    updateQuizActive(true);
+    _currentQuestionIndex = 0;
+    _timeLeft = Constants.questionTime;
+    _isQuizEnded = false;
     startTimer();
   }
 
   void startTimer() {
     _timer?.cancel();
-    _isQuizEnded = false;
-    _selectedIndex = -1;
     _timer = Timer.periodic(
       const Duration(seconds: 1),
-      (timer) {
+      (timer) async {
         if (_timeLeft > 0) {
           _timeLeft--;
-          debugPrint("Time left: $_timeLeft");
+          await _quizzesRef.child("timerDuration").set(_timeLeft);
           notifyListeners();
         } else {
-          debugPrint("Time's up! Moving to next question...");
           nextQuestion();
         }
       },
     );
   }
 
-  void nextQuestion() {
-    _timer?.cancel();
+  void checkAnswer(int selectedIndex, String uid) {
+    if (quizActive) {
+      if (currentQuestion.isCorrectAnswer(selectedIndex)) {
+        _score++;
+      }
+      QuestionModel model =
+          currentQuestion.copyWith(hasAnswered: true, answeredUser: uid);
 
-    if (_currentQuestionIndex < quizQuestions.length - 1) {
-      _currentQuestionIndex++;
-      _timeLeft = 6;
-      debugPrint("Moving to next question... $_currentQuestionIndex");
-      startQuiz();
-    } else {
-      debugPrint("Quiz ended!");
-      _timer?.cancel();
-      _isQuizEnded = true;
-      _timeLeft = 0;
-      debugPrint("Quiz ended!_$_timeLeft");
+      updateQuestion(model);
+      _quizQuestions[_currentQuestionIndex] = model;
+      _selectedIndex = selectedIndex;
+      nextQuestion();
       notifyListeners();
+    } else {
+      ToastUtils.showErrorToast("Timer isn't running");
     }
+  }
+
+  void nextQuestion() async {
+    setBtnLoading(true);
+    _timer?.cancel();
+    _selectedIndex = -1;
+
+    if (_currentQuestionIndex < _quizQuestions.length - 1) {
+      _currentQuestionIndex++;
+      _timeLeft = Constants.questionTime;
+      await _quizzesRef.child("currentQuestion").set(_currentQuestionIndex);
+      await _quizzesRef.child("timerDuration").set(_timeLeft);
+      updateQuizActive(true);
+      startTimer();
+    } else {
+      endQuiz();
+    }
+    setBtnLoading(false);
+  }
+
+  void toggleQuiz() async {
+    debugPrint("_isPaused $_quizActive");
+    if (!_quizActive) {
+      // Resume quiz
+
+      _isPaused = false;
+      startTimer();
+      await updateQuizActive(true);
+    } else {
+      // Pause quiz
+
+      _isPaused = true;
+      _timer?.cancel();
+      _timer = null;
+
+      await updateQuizActive(false);
+    }
+    notifyListeners();
+  }
+
+  void endQuiz() async {
+    _timer?.cancel();
+    _isQuizEnded = true;
+    _timeLeft = 0;
+    _quizActive = false;
+
+    await _quizzesRef.child("quizActive").set(false);
+    await _quizzesRef.child("timerDuration").set(0);
+    notifyListeners();
   }
 
   void fetchQuestions() {
     setLoading(true);
 
     _questionsRef.onValue.listen((event) {
+      // debugPrint("questions ${event.snapshot.value}");
       final snapshotsList = event.snapshot.value as List;
       if (snapshotsList.isNotEmpty) {
         _quizQuestions.clear();
@@ -181,107 +266,74 @@ class QuizProvider with ChangeNotifier {
     }
   }
 
+  void resetQuiz() async {
+    setLoading(true);
+
+    _currentQuestionIndex = 0;
+    _score = 0;
+    _quizActive = false;
+    _selectedIndex = -1;
+    _isQuizEnded = false;
+    _timer?.cancel();
+    _timeLeft = Constants.questionTime;
+
+    try {
+      await _quizzesRef.update({
+        'quizActive': false,
+        'timerDuration': Constants.questionTime,
+        'currentQuestion': 0,
+      });
+
+      resetAllAnswers();
+      setLoading(false);
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error resetting quiz: $e");
+      setLoading(false);
+    }
+  }
+
   Stream<List<QuestionModel>> getQuestionsStream() {
     return _questionsRef.onValue.map((event) {
       List<QuestionModel> questions = [];
       final snapshotsList = event.snapshot.value as List;
       if (snapshotsList.isNotEmpty) {
+        // log("question list ${snapshotsList.first}");
         for (var element in snapshotsList) {
           if (element != null) {
             questions.add(
                 QuestionModel.fromJson(Map<String, dynamic>.from(element)));
           }
         }
-        //  _quizQuestions.clear();
-        // _quizQuestions = questions;
-        notifyListeners();
-        return questions;
       }
-      return [];
+      log("questions.length ${questions.length}");
+      return questions;
     });
   }
 
   Stream<List<UserModel>> getUsersStream() {
-    return _usersRef.onValue.map((event) {
+    return _participatedUsersRef.onValue.map((event) {
       Map<dynamic, dynamic>? usersMap =
           event.snapshot.value as Map<dynamic, dynamic>?;
       if (usersMap != null) {
         List<UserModel> users = usersMap.entries
             .map((entry) {
-              return UserModel.fromJson(Map<String, dynamic>.from(entry.value))
-                  .copyWith(uid: entry.key);
+              debugPrint("getUsersStream ${entry.value["createdAt"]}");
+              return UserModel.fromJson(Map<String, dynamic>.from(entry.value));
             })
             .toList()
             .where((element) => element.isAdmin == false)
             .toList();
+        log("users.length ${users.length}");
         return users;
       }
       return [];
     });
   }
 
-  void toggleQuiz() {
-    debugPrint("_isPaused $_quizStarted");
-    if (!_quizStarted) {
-      // Resume quiz
-      _isPaused = false;
-      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (_timeLeft > 0) {
-          _timeLeft--;
-          updateQuizStarted(true);
-          notifyListeners();
-        } else {
-          nextQuestion();
-        }
-      });
-    } else {
-      // Pause quiz
-      _isPaused = true;
-      updateQuizStarted(false);
-      _timer?.cancel();
-      notifyListeners();
-    }
-  }
-
-  void checkAnswer(int selectedIndex, String uid) {
-    if (currentQuestion.isCorrectAnswer(selectedIndex)) {
-      _score++;
-    }
-    QuestionModel model =
-        currentQuestion.copyWith(hasAnswered: true, answeredUser: uid);
-
-    updateQuestion(model);
-    _quizQuestions[_currentQuestionIndex] = model;
-    _selectedIndex = selectedIndex;
-    _timer?.cancel();
-    notifyListeners();
-  }
-
-  void resetQuiz() {
-    setLoading(true);
-    _currentQuestionIndex = 0;
-    _score = 0;
-    currentQuestion.hasAnswered = false;
-    _selectedIndex = -1;
-    _isQuizEnded = false;
-    resetAllAnswers();
-    updateQuizStarted(false);
-    _timeLeft = 5;
-    setLoading(false);
-    notifyListeners();
-  }
-
-  void logout() {
-    _timer?.cancel();
-    _timeLeft = 0;
-    _score = 0;
-    // if (isAdmin) {
-    // _quizQuestions.clear();
-    resetAllAnswers();
-    // }
-    _currentQuestionIndex = 0;
-    _isQuizEnded = true;
-    updateQuizStarted(false);
-    notifyListeners();
+  void dispose() {
+    _timerSubscription.cancel();
+    _quizActiveSubscription.cancel();
+    _currentQuestionIndexSubscription.cancel();
   }
 }

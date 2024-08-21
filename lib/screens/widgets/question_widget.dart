@@ -24,60 +24,40 @@ class QuestionWidget extends StatelessWidget {
           TimeAndQuestionCount(
             quizProvider: quizProvider,
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              question.question,
-              style: context.textTheme.headlineMedium,
+          if (!quizProvider.isQuizEnded)
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                question.question,
+                style: context.textTheme.headlineMedium,
+              ),
             ),
-          ),
-          (authProvider.currentUser != null &&
-                  authProvider.currentUser!.isAdmin)
-              ? const AdminPage()
-              : Column(
-                  children: List.generate(
-                    question.options.length,
-                    (index) {
-                      return QuizOptionTile(
-                        option: question.options[index],
-                        isSelected: quizProvider.selectedIndex == index,
-                        onTap: question.hasAnswered
-                            ? null
-                            : () {
-                                quizProvider.checkAnswer(
-                                    index, authProvider.currentUser!.uid);
-                              },
-                      );
-                    },
-                  ),
-                ),
-          const Row(
-            children: [
-              // if (!question.hasAnswered)
-              //   ElevatedButton(
-              //     onPressed: () {
-              //       {
-              //         quizProvider.toggleQuiz();
-              //         setState(() {});
-              //       }
-              //     },
-              //     child: Icon(
-              //       quizProvider.isPaused
-              //           ? Icons.play_arrow
-              //           : Icons.pause,
-              //     ),
-              //   ),
-              // if (question.hasAnswered)
-              //   ElevatedButton(
-              //     onPressed: () {
-              //       {
-              //         quizProvider.nextQuestion();
-              //       }
-              //     },
-              //     child: const Text('Next'),
-              //   ),
-            ],
-          ),
+          if (authProvider.currentUser != null &&
+              authProvider.currentUser!.isAdmin)
+            const AdminPage(),
+          (quizProvider.btnLoading && !authProvider.isAdmin)
+              ? const Center(
+                  child: CircularProgressIndicator(),
+                )
+              : (!quizProvider.isQuizEnded && !authProvider.isAdmin)
+                  ? Column(
+                      children: List.generate(
+                        question.options.length,
+                        (index) {
+                          return QuizOptionTile(
+                            option: question.options[index],
+                            isSelected: quizProvider.selectedIndex == index,
+                            onTap: question.hasAnswered
+                                ? null
+                                : () {
+                                    quizProvider.checkAnswer(
+                                        index, authProvider.currentUser!.uid);
+                                  },
+                          );
+                        },
+                      ),
+                    )
+                  : const SizedBox.shrink(),
         ],
       );
     });

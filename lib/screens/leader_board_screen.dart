@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:quiz_app/models/user_model.dart';
 import 'package:quiz_app/providers/auth_provider.dart';
 
-class LeadershipPage extends StatelessWidget {
-  const LeadershipPage({super.key});
+class LeaderBoardPage extends StatelessWidget {
+  const LeaderBoardPage({super.key});
 
   @override
   Widget build(BuildContext context) {
