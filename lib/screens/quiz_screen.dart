@@ -44,9 +44,10 @@ class QuizScreenState extends State<QuizScreen> {
                     !authProvider.currentUser!.isAdmin
                 ? IconButton(
                     tooltip: "Leaderboard",
-                    onPressed: () {
-                      quizProvider.resetQuiz();
-                      context.push(navigateTo: const LeaderBoardPage());
+                    onPressed: () async {
+                      await quizProvider.resetQuiz().whenComplete(() {
+                        context.push(navigateTo: const LeaderBoardPage());
+                      });
                     },
                     icon: const Icon(Icons.leaderboard_outlined),
                   )
@@ -57,11 +58,13 @@ class QuizScreenState extends State<QuizScreen> {
               builder: (context, authProvider, quizProvider, _) {
             return IconButton(
               tooltip: "Logout",
-              onPressed: () {
-                quizProvider.resetQuiz();
-                authProvider.logout();
-                quizProvider.dispose();
-                context.pushReplacement(navigateTo: const SignInScreen());
+              onPressed: () async {
+                await quizProvider.resetQuiz().whenComplete(() async {
+                  await authProvider.logout().whenComplete(() {
+                    quizProvider.dispose();
+                    context.pushReplacement(navigateTo: const SignInScreen());
+                  });
+                });
               },
               icon: const Icon(Icons.logout),
             );

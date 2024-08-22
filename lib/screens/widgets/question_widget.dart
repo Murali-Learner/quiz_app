@@ -36,8 +36,9 @@ class QuestionWidget extends StatelessWidget {
               authProvider.currentUser!.isAdmin)
             const AdminPage(),
           (quizProvider.btnLoading && !authProvider.isAdmin)
-              ? const Center(
-                  child: CircularProgressIndicator(),
+              ? Text(
+                  "Please wait for the next question..",
+                  style: context.textTheme.bodyMedium,
                 )
               : (!quizProvider.isQuizEnded && !authProvider.isAdmin)
                   ? Column(

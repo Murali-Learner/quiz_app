@@ -11,24 +11,32 @@ class AuthProvider with ChangeNotifier {
 
   AuthProvider._internal() {
     _auth = FirebaseAuth.instance;
-    _databaseRef =
+    _usersRef =
         FirebaseDatabase.instance.ref("quizzes/quiz1/participatedUsers/");
     _listenAuthChanges();
   }
 
   late final FirebaseAuth _auth;
-  late final DatabaseReference _databaseRef;
+  late final DatabaseReference _usersRef;
 
   bool _isLoading = false;
   UserModel? _currentUser;
   bool _isAdmin = false;
+  Map<String, UserModel> _users = {};
 
   bool get isLoading => _isLoading;
   bool get isAdmin => _isAdmin;
+  Map<String, UserModel> get users => _users;
   UserModel? get currentUser => _currentUser;
 
   void toggleAdmin(bool value) {
     _isAdmin = value;
+    notifyListeners();
+  }
+
+  void setUsers(Map<String, UserModel> dbUsers) {
+    _users = {};
+    _users = dbUsers;
     notifyListeners();
   }
 
@@ -46,7 +54,9 @@ class AuthProvider with ChangeNotifier {
       {bool isAdminLogin = false}) async {
     _setLoading(true);
     try {
+      debugPrint("admin login start");
       UserModel? userModel = await _getUserByName(userName);
+      debugPrint("admin login start ${userModel!.toJson()}");
       if (userModel == null) {
         UserCredential userCredential = await _auth.signInAnonymously();
         User? user = userCredential.user;
@@ -63,17 +73,20 @@ class AuthProvider with ChangeNotifier {
           await _saveUserToDatabase(_currentUser!);
         }
       } else {
+        debugPrint("admin login1");
         if (userModel.isAdmin) {
+          debugPrint("admin login2");
           _isAdmin = true;
           notifyListeners();
         } else {
+          debugPrint("not admin login");
           _isAdmin = false;
           notifyListeners();
         }
         _currentUser = userModel;
         notifyListeners();
+        debugPrint("admin login finished");
       }
-      notifyListeners();
     } catch (e) {
       debugPrint('Failed to sign in anonymously: $e');
     } finally {
@@ -90,9 +103,7 @@ class AuthProvider with ChangeNotifier {
             ? newScore
             : _currentUser!.highestScore,
       );
-      await _databaseRef
-          .child(_currentUser!.uid)
-          .update(_currentUser!.toJson());
+      await _usersRef.child(_currentUser!.uid).update(_currentUser!.toJson());
       notifyListeners();
     }
   }
@@ -112,8 +123,9 @@ class AuthProvider with ChangeNotifier {
   }
 
   Stream<List<UserModel>> getLeaderboardStream() {
-    return _databaseRef.orderByChild('highestScore').onValue.map((event) {
+    return _usersRef.orderByChild('highestScore').onValue.map((event) {
       final usersMap = event.snapshot.value as Map<dynamic, dynamic>;
+      debugPrint("usersMap $usersMap");
       final usersList = usersMap.entries
           .map((entry) {
             return UserModel.fromJson(
@@ -142,7 +154,7 @@ class AuthProvider with ChangeNotifier {
     if (user == null) {
       _currentUser = null;
     } else {
-      final userSnapshot = await _databaseRef.child(user.uid).get();
+      final userSnapshot = await _usersRef.child(user.uid).get();
       if (userSnapshot.exists) {
         final data = userSnapshot.value as Map<Object?, Object?>;
         _currentUser = UserModel.fromJson(Map<String, dynamic>.from(data));
@@ -153,12 +165,35 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // Stream<List<UserModel>> getUsersStream() {
+  //   return _usersRef.onValue.map((event) {
+  //     Map<dynamic, dynamic>? usersMap =
+  //         event.snapshot.value as Map<dynamic, dynamic>?;
+  //     if (usersMap != null) {
+  //       List<UserModel> users = usersMap.entries
+  //           .map((entry) {
+  //             debugPrint("getUsersStream ${entry.value["createdAt"]}");
+  //             return UserModel.fromJson(Map<String, dynamic>.from(entry.value));
+  //           })
+  //           .toList()
+  //           .where((element) => element.isAdmin == false)
+  //           .toList();
+  //       log("users.length ${users.length}");
+  //       return users;
+  //     }
+  //     return [];
+  //   });
+  // }
+
   Future<UserModel?> _getUserByName(String name) async {
     try {
+      final data = _usersRef.orderByChild('name');
+      final data1 = await data.once();
+      debugPrint("_getUserByName ${data} d ${data1}");
       DatabaseEvent event =
-          await _databaseRef.orderByChild('name').equalTo(name).once();
+          await _usersRef.orderByChild('name').equalTo(name).once();
       DataSnapshot snapshot = event.snapshot;
-
+      debugPrint("_getUserByName ${event.snapshot.value} ");
       if (snapshot.exists && snapshot.value != null) {
         final userData = Map<dynamic, dynamic>.from(snapshot.value as Map);
         String uid = userData.keys.first;
@@ -174,7 +209,7 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _saveUserToDatabase(UserModel userModel) async {
     try {
-      await _databaseRef.child(userModel.uid).set(userModel.toJson());
+      await _usersRef.child(userModel.uid).set(userModel.toJson());
     } catch (e) {
       debugPrint('Error saving user to database: $e');
     }

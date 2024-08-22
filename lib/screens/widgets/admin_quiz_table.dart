@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quiz_app/models/question_model.dart';
 import 'package:quiz_app/models/user_model.dart';
+import 'package:quiz_app/providers/auth_provider.dart';
 import 'package:quiz_app/providers/quiz_provider.dart';
 import 'package:quiz_app/utils/extensions/context_extension.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
@@ -28,9 +29,9 @@ class AdminQuizTableState extends State<AdminQuizTable> {
   void _fetchData() {
     // Fetch users
     final quizProvider = context.read<QuizProvider>();
-    quizProvider.getUsersStream().listen(
+    final authProvider = context.read<AuthProvider>();
+    authProvider.getLeaderboardStream().listen(
       (users) {
-        // debugPrint("uses stream ${users.length}");
         setState(
           () {
             _users = users;

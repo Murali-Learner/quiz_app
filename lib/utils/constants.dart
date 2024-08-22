@@ -3,7 +3,8 @@ import 'package:quiz_app/models/question_model.dart';
 
 class Constants {
   static const admin = "MURALI";
-  static const questionTime = 5;
+  static const questionDuration = 5;
+  static const delayDuration = 2;
   static final GlobalKey<FormState> formKey = GlobalKey<FormState>();
 }
 

@@ -17,7 +17,7 @@ class QuestionModel {
 
   factory QuestionModel.fromJson(Map<String, dynamic> json) {
     return QuestionModel(
-      id: json['id'] ?? "",
+      id: (json['id'] ?? "").toString(),
       answeredUser: json['answeredUser'] ?? '',
       question: json['question'] ?? '',
       options: List<String>.from(json['options'] ?? []),

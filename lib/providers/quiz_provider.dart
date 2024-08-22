@@ -4,7 +4,6 @@ import 'dart:developer';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:quiz_app/models/question_model.dart';
-import 'package:quiz_app/models/user_model.dart';
 import 'package:quiz_app/utils/constants.dart';
 import 'package:quiz_app/utils/toast_utils.dart';
 
@@ -42,11 +41,11 @@ class QuizProvider with ChangeNotifier {
   late final DatabaseReference _quizzesRef;
   late final FirebaseDatabase _dbInstance;
 
-  List<QuestionModel> _quizQuestions = [];
+  Map<String, QuestionModel> _quizQuestions = {};
   int _selectedIndex = -1;
   int _currentQuestionIndex = 0;
   int _score = 0;
-  int _timeLeft = Constants.questionTime;
+  int _timeLeft = Constants.questionDuration;
   bool _quizActive = false;
   Timer? _timer;
   bool _isQuizEnded = false;
@@ -59,7 +58,7 @@ class QuizProvider with ChangeNotifier {
   bool get btnLoading => _btnLoading;
   bool get quizActive => _quizActive;
   int get currentQuestionIndex => _currentQuestionIndex;
-  List<QuestionModel> get quizQuestions => _quizQuestions;
+  Map<String, QuestionModel> get quizQuestions => _quizQuestions;
   int get totalQuestions => quizQuestions.length;
   int get score => _score;
   int get timeLeft => _timeLeft;
@@ -107,13 +106,15 @@ class QuizProvider with ChangeNotifier {
   }
 
   QuestionModel get currentQuestion {
-    return _quizQuestions[_currentQuestionIndex];
+    return _quizQuestions[_currentQuestionIndex == 0
+        ? (_currentQuestionIndex + 1).toString()
+        : _currentQuestionIndex.toString()]!;
   }
 
   void startQuiz() {
     updateQuizActive(true);
     _currentQuestionIndex = 0;
-    _timeLeft = Constants.questionTime;
+    _timeLeft = Constants.questionDuration;
     _isQuizEnded = false;
     startTimer();
   }
@@ -143,7 +144,7 @@ class QuizProvider with ChangeNotifier {
           currentQuestion.copyWith(hasAnswered: true, answeredUser: uid);
 
       updateQuestion(model);
-      _quizQuestions[_currentQuestionIndex] = model;
+      _quizQuestions[_currentQuestionIndex.toString()] = model;
       _selectedIndex = selectedIndex;
       nextQuestion();
       notifyListeners();
@@ -154,19 +155,26 @@ class QuizProvider with ChangeNotifier {
 
   void nextQuestion() async {
     setBtnLoading(true);
-    _timer?.cancel();
-    _selectedIndex = -1;
+    Future.delayed(const Duration(seconds: Constants.delayDuration))
+        .whenComplete(
+      () async {
+        debugPrint("delayed 2 seconds");
+        _timer?.cancel();
+        _selectedIndex = -1;
 
-    if (_currentQuestionIndex < _quizQuestions.length - 1) {
-      _currentQuestionIndex++;
-      _timeLeft = Constants.questionTime;
-      await _quizzesRef.child("currentQuestion").set(_currentQuestionIndex);
-      await _quizzesRef.child("timerDuration").set(_timeLeft);
-      updateQuizActive(true);
-      startTimer();
-    } else {
-      endQuiz();
-    }
+        if (_currentQuestionIndex < _quizQuestions.length - 1) {
+          _currentQuestionIndex++;
+          _timeLeft = Constants.questionDuration;
+          await _quizzesRef.child("currentQuestion").set(_currentQuestionIndex);
+          await _quizzesRef.child("timerDuration").set(_timeLeft);
+          updateQuizActive(true);
+          startTimer();
+        } else {
+          endQuiz();
+        }
+      },
+    );
+
     setBtnLoading(false);
   }
 
@@ -212,16 +220,23 @@ class QuizProvider with ChangeNotifier {
 
         for (var element in snapshotsList) {
           if (element != null) {
-            _quizQuestions.add(
+            _quizQuestions[element["id"].toString()] =
                 QuestionModel.fromJson(Map<String, dynamic>.from(element))
                     .copyWith(
               hasAnswered: false,
               answeredUser: "",
-            ));
+            );
+
+            // _quizQuestions.add(
+            //     QuestionModel.fromJson(Map<String, dynamic>.from(element))
+            //         .copyWith(
+            //   hasAnswered: false,
+            //   answeredUser: "",
+            // ));
           }
         }
       }
-      log("_quizQuestions.length ${_quizQuestions.length} ");
+      log("_quizQuestions.length ${_quizQuestions.length}");
       setLoading(false);
       notifyListeners();
     });
@@ -232,10 +247,12 @@ class QuizProvider with ChangeNotifier {
       await _questionsRef
           .child(updatedQuestion.id)
           .update(updatedQuestion.toJson());
-      int index = _quizQuestions
-          .indexWhere((question) => question.id == updatedQuestion.id);
+      int index = _quizQuestions.values
+          .where((question) => question.id == updatedQuestion.id)
+          .toList()
+          .indexOf(updatedQuestion);
       if (index != -1) {
-        _quizQuestions[index] = updatedQuestion;
+        _quizQuestions[index.toString()] = updatedQuestion;
         notifyListeners();
       }
     } catch (e) {
@@ -243,30 +260,36 @@ class QuizProvider with ChangeNotifier {
     }
   }
 
-  void resetAllAnswers() async {
+  Future<void> resetAllAnswers() async {
     try {
-      for (QuestionModel question in _quizQuestions) {
+      List<QuestionModel> questions = _quizQuestions.values.toList();
+
+      for (QuestionModel question in questions) {
         var updatedQuestion = question.copyWith(
           hasAnswered: false,
           answeredUser: '',
         );
         await _questionsRef.child(question.id).update(updatedQuestion.toJson());
       }
+      debugPrint("db ques reset");
+      // _quizQuestions.forEach((id, question) {
 
+      // });
       for (var i = 0; i < _quizQuestions.length; i++) {
-        _quizQuestions[i] = _quizQuestions[i].copyWith(
+        questions[i] = questions[i].copyWith(
           hasAnswered: false,
           answeredUser: '',
         );
       }
-      debugPrint("statement");
+      debugPrint("local ques reset");
+
       notifyListeners();
     } catch (e) {
       debugPrint("Error resetting answers: $e");
     }
   }
 
-  void resetQuiz() async {
+  Future<void> resetQuiz() async {
     setLoading(true);
 
     _currentQuestionIndex = 0;
@@ -275,16 +298,16 @@ class QuizProvider with ChangeNotifier {
     _selectedIndex = -1;
     _isQuizEnded = false;
     _timer?.cancel();
-    _timeLeft = Constants.questionTime;
+    _timeLeft = Constants.questionDuration;
 
     try {
       await _quizzesRef.update({
         'quizActive': false,
-        'timerDuration': Constants.questionTime,
+        'timerDuration': Constants.questionDuration,
         'currentQuestion': 0,
       });
 
-      resetAllAnswers();
+      await resetAllAnswers();
       setLoading(false);
       notifyListeners();
     } catch (e) {
@@ -311,27 +334,9 @@ class QuizProvider with ChangeNotifier {
     });
   }
 
-  Stream<List<UserModel>> getUsersStream() {
-    return _participatedUsersRef.onValue.map((event) {
-      Map<dynamic, dynamic>? usersMap =
-          event.snapshot.value as Map<dynamic, dynamic>?;
-      if (usersMap != null) {
-        List<UserModel> users = usersMap.entries
-            .map((entry) {
-              debugPrint("getUsersStream ${entry.value["createdAt"]}");
-              return UserModel.fromJson(Map<String, dynamic>.from(entry.value));
-            })
-            .toList()
-            .where((element) => element.isAdmin == false)
-            .toList();
-        log("users.length ${users.length}");
-        return users;
-      }
-      return [];
-    });
-  }
-
+  @override
   void dispose() {
+    super.dispose();
     _timerSubscription.cancel();
     _quizActiveSubscription.cancel();
     _currentQuestionIndexSubscription.cancel();
