@@ -56,6 +56,7 @@ class SignInScreenState extends State<SignInScreen> {
                           10.hSpace,
                           ElevatedButton(
                             onPressed: () async {
+                              _nameController.clear();
                               authProvider.toggleAdmin(true);
                               final userName = _adminController.text.trim();
 
