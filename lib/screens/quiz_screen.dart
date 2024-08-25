@@ -40,13 +40,13 @@ class QuizScreenState extends State<QuizScreen> {
         actions: [
           Consumer2<QuizProvider, AuthProvider>(
               builder: (context, quizProvider, authProvider, _) {
-            return quizProvider.isQuizEnded &&
-                    !authProvider.currentUser!.isAdmin
+            return quizProvider.quizEnded && !authProvider.currentUser!.isAdmin
                 ? IconButton(
                     tooltip: "Leaderboard",
-                    onPressed: () {
-                      quizProvider.resetQuiz();
-                      context.push(navigateTo: const LeaderBoardPage());
+                    onPressed: () async {
+                      await quizProvider.resetQuiz().whenComplete(() {
+                        context.push(navigateTo: const LeaderBoardPage());
+                      });
                     },
                     icon: const Icon(Icons.leaderboard_outlined),
                   )
@@ -57,11 +57,15 @@ class QuizScreenState extends State<QuizScreen> {
               builder: (context, authProvider, quizProvider, _) {
             return IconButton(
               tooltip: "Logout",
-              onPressed: () {
-                quizProvider.resetQuiz();
-                authProvider.logout();
-                quizProvider.dispose();
-                context.pushReplacement(navigateTo: const SignInScreen());
+              onPressed: () async {
+                await quizProvider.resetQuiz().whenComplete(() async {
+                  await authProvider.logout().whenComplete(() {
+                    if (mounted) {
+                      quizProvider.dispose();
+                      context.pushReplacement(navigateTo: const SignInScreen());
+                    }
+                  });
+                });
               },
               icon: const Icon(Icons.logout),
             );
@@ -80,7 +84,7 @@ class QuizScreenState extends State<QuizScreen> {
                 ? const SizedBox.shrink()
                 : QuizWidget(
                     isAdmin: authProvider.isAdmin,
-                    isQuizEnded: quizProvider.isQuizEnded,
+                    quizEnded: quizProvider.quizEnded,
                     question: quizProvider.currentQuestion,
                     currentUsername: authProvider.currentUser == null
                         ? ""

@@ -24,7 +24,7 @@ class QuestionWidget extends StatelessWidget {
           TimeAndQuestionCount(
             quizProvider: quizProvider,
           ),
-          if (!quizProvider.isQuizEnded)
+          if (!quizProvider.quizEnded)
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Text(
@@ -36,10 +36,11 @@ class QuestionWidget extends StatelessWidget {
               authProvider.currentUser!.isAdmin)
             const AdminPage(),
           (quizProvider.btnLoading && !authProvider.isAdmin)
-              ? const Center(
-                  child: CircularProgressIndicator(),
+              ? Text(
+                  "Please wait for the next question..",
+                  style: context.textTheme.bodyLarge,
                 )
-              : (!quizProvider.isQuizEnded && !authProvider.isAdmin)
+              : (!quizProvider.quizEnded && !authProvider.isAdmin)
                   ? Column(
                       children: List.generate(
                         question.options.length,

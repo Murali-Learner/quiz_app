@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quiz_app/providers/quiz_provider.dart';
@@ -20,12 +18,12 @@ class AdminPageState extends State<AdminPage> {
   @override
   Widget build(BuildContext context) {
     return Consumer<QuizProvider>(builder: (context, quizProvider, _) {
-      log(" quizProvider.isPaused ${quizProvider.quizActive}");
+      // log(" quizProvider.isPaused ${quizProvider.quizActive}");
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (quizProvider.isQuizEnded)
+          if (quizProvider.quizEnded)
             Column(
               children: [
                 Text(
@@ -48,7 +46,7 @@ class AdminPageState extends State<AdminPage> {
                 ),
               ],
             ),
-          if (!quizProvider.isQuizEnded)
+          if (!quizProvider.quizEnded)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [

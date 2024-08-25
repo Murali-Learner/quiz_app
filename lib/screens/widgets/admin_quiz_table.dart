@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quiz_app/models/question_model.dart';
 import 'package:quiz_app/models/user_model.dart';
+import 'package:quiz_app/providers/auth_provider.dart';
 import 'package:quiz_app/providers/quiz_provider.dart';
 import 'package:quiz_app/utils/extensions/context_extension.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
@@ -17,6 +20,8 @@ class AdminQuizTableState extends State<AdminQuizTable> {
   List<UserModel> _users = [];
   List<QuestionModel> _questions = [];
 
+  StreamSubscription? _usersSubscription;
+  StreamSubscription? _questionsSubscription;
   UsersDataSource? _usersDataSource;
 
   @override
@@ -28,29 +33,42 @@ class AdminQuizTableState extends State<AdminQuizTable> {
   void _fetchData() {
     // Fetch users
     final quizProvider = context.read<QuizProvider>();
-    quizProvider.getUsersStream().listen(
+    final authProvider = context.read<AuthProvider>();
+
+    _usersSubscription = authProvider.getUsersStream().listen(
       (users) {
-        // debugPrint("uses stream ${users.length}");
-        setState(
-          () {
-            _users = users;
-            _initializeDataSource();
-          },
-        );
+        debugPrint("uses stream ${users.length}");
+        if (mounted) {
+          setState(
+            () {
+              _users = users;
+              _initializeDataSource();
+            },
+          );
+        }
       },
     );
 
     // Fetch questions
-    quizProvider.getQuestionsStream().listen(
+    _questionsSubscription = quizProvider.getQuestionsStream().listen(
       (questions) {
-        setState(
-          () {
-            _questions = questions;
-            _initializeDataSource();
-          },
-        );
+        if (mounted) {
+          setState(
+            () {
+              _questions = questions;
+              _initializeDataSource();
+            },
+          );
+        }
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _usersSubscription?.cancel();
+    _questionsSubscription?.cancel();
+    super.dispose();
   }
 
   void _initializeDataSource() {

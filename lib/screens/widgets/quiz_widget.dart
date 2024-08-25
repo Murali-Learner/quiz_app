@@ -9,19 +9,19 @@ import 'package:quiz_app/utils/extensions/spacer_extension.dart';
 class QuizWidget extends StatelessWidget {
   const QuizWidget({
     super.key,
-    required this.isQuizEnded,
+    required this.quizEnded,
     required this.question,
     required this.currentUsername,
     required this.isAdmin,
   });
   final QuestionModel question;
-  final bool isQuizEnded;
+  final bool quizEnded;
   final String currentUsername;
   final bool isAdmin;
 
   @override
   Widget build(BuildContext context) {
-    debugPrint("(isQuizEnded && !isAdmin) ${isQuizEnded} ${isAdmin}");
+    // debugPrint("(isQuizEnded && isAdmin) ${quizEnded} ${isAdmin}");
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(8.0),
@@ -37,7 +37,7 @@ class QuizWidget extends StatelessWidget {
                 ),
               ),
               20.vSpace,
-              (isQuizEnded && !isAdmin)
+              (quizEnded && !isAdmin)
                   ? const ResultWidget()
                   : const QuestionWidget()
             ],
